@@ -439,6 +439,7 @@ class Delayable:
         "description",
         "channel",
         "identity_key",
+        "retryable_exceptions",
     )
     __slots__ = _properties + (
         "recordset",
@@ -458,6 +459,7 @@ class Delayable:
         description=None,
         channel=None,
         identity_key=None,
+        retryable_exceptions=None,
     ):
         self._graph = DelayableGraph()
         self._graph.add_vertex(self)
@@ -470,6 +472,7 @@ class Delayable:
         self.description = description
         self.channel = channel
         self.identity_key = identity_key
+        self.retryable_exceptions = retryable_exceptions
 
         self._job_method = None
         self._job_args = ()
@@ -539,6 +542,7 @@ class Delayable:
             description=self.description,
             channel=self.channel,
             identity_key=self.identity_key,
+            retryable_exceptions=self.retryable_exceptions,
         )
         return self._generated_job
 
