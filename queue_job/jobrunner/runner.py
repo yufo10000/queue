@@ -565,6 +565,6 @@ class QueueJobRunner(object):
                         "UPDATE queue_job SET state='pending' WHERE state IN ('started', 'enqueued');"
                     )
                 except UndefinedTable:
-                    _logger.warning("Requeue jobs failed. queue_job table is missing")
+                    _logger.info("Requeue jobs failed. queue_job table is missing")
                 except Exception:
                     _logger.exception("Requeue jobs failed")
