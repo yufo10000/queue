@@ -564,5 +564,7 @@ class QueueJobRunner(object):
                     cr.execute(
                         "UPDATE queue_job SET state='pending' WHERE state IN ('started', 'enqueued');"
                     )
+                except UndefinedTable:
+                    _logger.warning("Requeue jobs failed. queue_job table is missing")
                 except Exception:
                     _logger.exception("Requeue jobs failed")
