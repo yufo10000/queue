@@ -4,6 +4,7 @@ from . import models
 from . import wizards
 from . import jobrunner
 from .post_init_hook import post_init_hook
+from .post_load_hook import post_load_hook
 
 # shortcuts
 from .job import identity_exact

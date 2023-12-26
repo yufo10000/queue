@@ -554,3 +554,15 @@ class QueueJobRunner(object):
                 time.sleep(ERROR_RECOVERY_DELAY)
         self.close_databases(remove_jobs=False)
         _logger.info("stopped")
+
+    @classmethod
+    def requeue_jobs(cls):
+        for db_name in cls.get_db_names():
+            db = Database(db_name)
+            with closing(db.conn.cursor()) as cr:
+                try:
+                    cr.execute(
+                        "UPDATE queue_job SET state='pending' WHERE state IN ('started', 'enqueued');"
+                    )
+                except Exception:
+                    _logger.exception("Requeue jobs failed")
