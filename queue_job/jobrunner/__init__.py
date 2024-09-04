@@ -25,6 +25,7 @@ from .runner import QueueJobRunner, _channels
 _logger = logging.getLogger(__name__)
 
 START_DELAY = 5
+JOB_SERVER_ONLY = queue_job_config.get("job_server_only")
 
 
 # Here we monkey patch the Odoo server to start the job runner thread

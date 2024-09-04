@@ -156,7 +156,7 @@ from psycopg2.errors import UndefinedTable
 import odoo
 from odoo.tools import config
 
-from . import queue_job_config
+from . import queue_job_config, JOB_SERVER_ONLY
 from .channels import ENQUEUED, NOT_DONE, PENDING, ChannelManager
 
 SELECT_TIMEOUT = 60
@@ -370,22 +370,23 @@ class QueueJobRunner(object):
     @classmethod
     def get_web_base_url(cls):
         scheme, hostname = None, None
-        for db_name in cls.get_db_names():
-            db = Database(db_name)
-            with closing(db.conn.cursor()) as cr:
-                try:
-                    cr.execute(
-                        "SELECT value FROM ir_config_parameter WHERE key='web.base.url' limit 1"
-                    )
-                    res = cr.fetchone()
-                    if res:
-                        url = urlparse(res[0])
-                        scheme, hostname = url.scheme, url.hostname
-                except UndefinedTable:
-                    _logger.warning("No ir_config_parameter table - maybe this is the first run with -i option")
-                except Exception:
-                    _logger.exception("Getting web.base.url failed")
-            db.close()
+        if not JOB_SERVER_ONLY:
+            for db_name in cls.get_db_names():
+                db = Database(db_name)
+                with closing(db.conn.cursor()) as cr:
+                    try:
+                        cr.execute(
+                            "SELECT value FROM ir_config_parameter WHERE key='web.base.url' limit 1"
+                        )
+                        res = cr.fetchone()
+                        if res:
+                            url = urlparse(res[0])
+                            scheme, hostname = url.scheme, url.hostname
+                    except UndefinedTable:
+                        _logger.warning("No ir_config_parameter table - maybe this is the first run with -i option")
+                    except Exception:
+                        _logger.exception("Getting web.base.url failed")
+                db.close()
         return scheme, hostname
 
     @classmethod
