@@ -371,6 +371,13 @@ class QueueJobRunner:
 
     @classmethod
     def get_web_base_url(cls):
+        """
+        This method is used to find the web.base.url in the database so that the jobrunner can
+        contact the odoo process.
+        If no web.base.url is found, return (None, None)
+
+        :return: tuple with the scheme and hostname of the web.base.url
+        """
         scheme, hostname = None, None
         for db_name in cls.get_db_names():
             db = Database(db_name)
@@ -565,6 +572,9 @@ class QueueJobRunner:
 
     @classmethod
     def requeue_jobs(cls):
+        """
+        Requeue all jobs that are in 'started' or 'enqueued' state.
+        """
         for db_name in cls.get_db_names():
             db = Database(db_name)
             with closing(db.conn.cursor()) as cr:
