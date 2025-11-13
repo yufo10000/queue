@@ -6,6 +6,7 @@ from functools import total_ordering
 from heapq import heappop, heappush
 from weakref import WeakValueDictionary
 
+from . import queue_job_config
 from ..exception import ChannelNotFound
 from ..job import CANCELLED, DONE, ENQUEUED, FAILED, PENDING, STARTED, WAIT_DEPENDENCIES
 
@@ -1003,7 +1004,18 @@ class ChannelManager:
     def notify(
         self, db_name, channel_name, uuid, seq, date_created, priority, eta, state
     ):
-        channel = self.get_channel_by_name(channel_name, parent_fallback=True)
+        job_server_only = queue_job_config.get("job_server_only")
+        if job_server_only and channel_name == "root":
+            return
+
+        if job_server_only:
+            try:
+                channel = self.get_channel_by_name(channel_name)
+            except ChannelNotFound:
+                return
+        else:
+            channel = self.get_channel_by_name(channel_name, parent_fallback=True)
+
         job = self._jobs_by_uuid.get(uuid)
         if job:
             # db_name is invariant
