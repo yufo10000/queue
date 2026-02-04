@@ -129,10 +129,12 @@ import selectors
 import threading
 import time
 from contextlib import closing, contextmanager
+from urllib.parse import urlparse
 
 import psycopg2
 import requests
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+from psycopg2.errors import UndefinedTable
 
 import odoo
 from odoo.tools import config
@@ -451,12 +453,51 @@ class QueueJobRunner:
             pass
 
     @classmethod
+    def get_web_base_url(cls):
+        """
+        This method is used to find the web.base.url in the database so that the jobrunner can
+        contact the odoo process.
+        If no web.base.url is found, return (None, None)
+
+        :return: tuple with the scheme and hostname of the web.base.url
+        """
+        if queue_job_config.get("job_server_only"):
+            return None, None
+
+        return cls._get_web_base_url()
+
+    @classmethod
+    def _get_web_base_url(cls):
+        scheme, hostname = None, None
+        for db_name in cls.get_db_names():
+            db = Database(db_name)
+            with closing(db.conn.cursor()) as cr:
+                try:
+                    cr.execute(
+                        "SELECT value FROM ir_config_parameter WHERE key='web.base.url' limit 1"
+                    )
+                    res = cr.fetchone()
+                    if res:
+                        url = urlparse(res[0])
+                        scheme, hostname = url.scheme, url.hostname
+                except UndefinedTable:
+                    _logger.warning("No ir_config_parameter table - maybe this is the first run with -i option")
+                except Exception:
+                    _logger.exception("Getting web.base.url failed")
+            db.close()
+        return scheme, hostname
+
+    @classmethod
     def from_environ_or_config(cls):
-        scheme = os.environ.get("ODOO_QUEUE_JOB_SCHEME") or queue_job_config.get(
-            "scheme"
+        web_base_scheme, web_base_host = cls.get_web_base_url()
+        scheme = (
+            web_base_scheme
+            or os.environ.get("ODOO_QUEUE_JOB_SCHEME")
+            or queue_job_config.get("scheme")
         )
         host = (
-            os.environ.get("ODOO_QUEUE_JOB_HOST")
+            web_base_host
+            or os.environ.get("ODOO_QUEUE_JOB_HOST")
             or queue_job_config.get("host")
             or config["http_interface"]
         )
@@ -480,7 +521,8 @@ class QueueJobRunner:
         )
         return runner
 
-    def get_db_names(self):
+    @staticmethod
+    def get_db_names():
         if config["db_name"]:
             db_names = config["db_name"].split(",")
         else:
@@ -616,6 +658,8 @@ class QueueJobRunner:
             except InterruptedError:
                 # Interrupted system call, i.e. KeyboardInterrupt during select
                 self.stop()
+            except OSError:
+                self.stop()
             except MasterElectionLost as e:
                 _logger.debug(
                     "master election lost: %s, sleeping %ds and retrying",
@@ -632,3 +676,20 @@ class QueueJobRunner:
                 time.sleep(ERROR_RECOVERY_DELAY)
         self.close_databases(remove_jobs=False)
         _logger.info("stopped")
+
+    @classmethod
+    def requeue_jobs(cls):
+        """
+        Requeue all jobs that are in 'started' or 'enqueued' state.
+        """
+        for db_name in cls.get_db_names():
+            db = Database(db_name)
+            with closing(db.conn.cursor()) as cr:
+                try:
+                    cr.execute(
+                        "UPDATE queue_job SET state='pending' WHERE state IN ('started', 'enqueued');"
+                    )
+                except UndefinedTable:
+                    _logger.info("Requeue jobs failed. queue_job table is missing")
+                except Exception:
+                    _logger.exception("Requeue jobs failed")

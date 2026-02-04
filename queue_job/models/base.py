@@ -69,6 +69,7 @@ class Base(models.AbstractModel):
         description=None,
         channel=None,
         identity_key=None,
+        retryable_exceptions=None,
     ):
         """Return a ``Delayable``
 
@@ -140,6 +141,7 @@ class Base(models.AbstractModel):
             description=description,
             channel=channel,
             identity_key=identity_key,
+            retryable_exceptions=retryable_exceptions,
         )
 
     def _patch_job_auto_delay(self, method_name, context_key=None):
